@@ -1,4 +1,5 @@
 require('dotenv').config();
+const dns = require('node:dns');
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
@@ -12,6 +13,14 @@ const bookingRoutes = require('./routes/bookings');
 const serviceRoutes = require('./routes/services');
 const messageRoutes = require('./routes/messages');
 const reviewRoutes = require('./routes/reviews');
+
+// Some mobile-hotspot/router DNS servers refuse MongoDB Atlas SRV lookups.
+// Allow an override through .env and use reliable public resolvers by default.
+const dnsServers = (process.env.DNS_SERVERS || '1.1.1.1,8.8.8.8')
+  .split(',')
+  .map((server) => server.trim())
+  .filter(Boolean);
+if (dnsServers.length) dns.setServers(dnsServers);
 
 const app = express();
 const configuredPort = Number(process.env.PORT || 5001);
@@ -88,7 +97,7 @@ async function startServer(port, allowFallback = true) {
     await seedDatabase();
     const server = app.listen(port, () => {
       console.log(`\nService Local API running on http://localhost:${port}`);
-      console.log(`MongoDB database: ${process.env.MONGO_URI}`);
+      console.log(`MongoDB database: ${require('mongoose').connection.name}`);
       console.log(`Health check: http://localhost:${port}/api/health`);
     });
     server.on('error', (error) => {
